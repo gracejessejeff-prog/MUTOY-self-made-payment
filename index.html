@@ -1,0 +1,1006 @@
+<!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#fff;color:#000}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style></head><body>
+<title>收款通知輔助小工具</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700&display=swap">
+<style>
+/* Layout: three steps in one column. 1 raw data in, 2 editable detail table, 3 notice settings and one card per person. Tables scroll sideways inside their own box. */
+:root {
+  --bg: #eef1f5;
+  --surface: #ffffff;
+  --surface-2: #f4f6f9;
+  --ink: #17212b;
+  --muted: #5a6776;
+  --line: #d5dce4;
+  --accent: #2457a6;
+  --accent-ink: #ffffff;
+  --danger: #a3302b;
+  --warn-bg: #fff2da;
+  --warn-ink: #7a4a00;
+  --font-ui: "Noto Sans TC", "PingFang TC", "Microsoft JhengHei", system-ui, sans-serif;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #10161d;
+    --surface: #18202a;
+    --surface-2: #1f2834;
+    --ink: #e8edf3;
+    --muted: #9fadbb;
+    --line: #2c3745;
+    --accent: #7fb0ff;
+    --accent-ink: #0b1a30;
+    --danger: #ff8d86;
+    --warn-bg: #3a2b10;
+    --warn-ink: #f2c879;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #10161d;
+  --surface: #18202a;
+  --surface-2: #1f2834;
+  --ink: #e8edf3;
+  --muted: #9fadbb;
+  --line: #2c3745;
+  --accent: #7fb0ff;
+  --accent-ink: #0b1a30;
+  --danger: #ff8d86;
+  --warn-bg: #3a2b10;
+  --warn-ink: #f2c879;
+  color-scheme: dark;
+}
+
+* { box-sizing: border-box; }
+body {
+  background: var(--bg);
+  color: var(--ink);
+  font-family: var(--font-ui);
+  font-size: 15px;
+  line-height: 1.6;
+}
+.page {
+  max-width: 920px;
+  margin: 0 auto;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+  padding-block: 20px 48px;
+}
+h1 { font-size: 1.45rem; line-height: 1.25; margin: 0 0 4px; text-wrap: balance; }
+.lead { color: var(--muted); margin: 0 0 18px; }
+
+.card {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-bottom: 14px;
+  min-width: 0;
+}
+h2 { font-size: 1.02rem; margin: 0; display: flex; gap: 10px; align-items: center; }
+.n {
+  flex: none;
+  width: 24px;
+  height: 24px;
+  border-radius: 6px;
+  background: var(--accent);
+  color: var(--accent-ink);
+  font-size: .82rem;
+  font-weight: 700;
+  display: grid;
+  place-items: center;
+}
+label { font-weight: 500; font-size: .9rem; }
+.hint { color: var(--muted); font-size: .85rem; margin: 0; }
+.field { display: flex; flex-direction: column; gap: 6px; }
+input[type="text"], textarea {
+  width: 100%;
+  font: inherit;
+  font-size: 16px;
+  color: var(--ink);
+  background: var(--surface-2);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 10px 12px;
+}
+textarea { resize: vertical; line-height: 1.55; }
+#raw { min-height: 240px; }
+#importText { min-height: 110px; }
+#header { min-height: 120px; }
+#tail { min-height: 84px; }
+.check { display: flex; gap: 10px; align-items: center; font-weight: 500; }
+.check input { width: 20px; height: 20px; accent-color: var(--accent); flex: none; }
+
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+.btn {
+  font: inherit;
+  font-weight: 500;
+  min-height: 44px;
+  padding: 8px 14px;
+  border-radius: 8px;
+  border: 1px solid var(--line);
+  background: var(--surface);
+  color: var(--ink);
+  cursor: pointer;
+}
+.btn:hover { background: var(--surface-2); }
+.btn.primary { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); }
+.btn.primary:hover { filter: brightness(1.08); }
+.btn.wide { width: 100%; font-size: 1rem; }
+.btn.small { min-height: 36px; padding: 4px 10px; font-size: .85rem; }
+.btn.danger { color: var(--danger); }
+.row { display: flex; gap: 8px; flex-wrap: wrap; }
+
+details { color: var(--muted); font-size: .88rem; }
+summary { cursor: pointer; font-weight: 500; color: var(--ink); min-height: 28px; }
+details > :not(summary) { margin-top: 10px; }
+details ul { margin: 8px 0 0; padding-left: 1.2em; display: flex; flex-direction: column; gap: 4px; }
+code { font-size: .85em; background: var(--surface-2); padding: 1px 5px; border-radius: 4px; }
+
+.warn { background: var(--warn-bg); color: var(--warn-ink); border-radius: 8px; padding: 10px 12px; font-size: .88rem; }
+.warn p { margin: 0; }
+.warn p + p { margin-top: 4px; }
+.warn:empty { display: none; }
+
+.table-head { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; flex-wrap: wrap; }
+.summary { color: var(--muted); font-variant-numeric: tabular-nums; }
+.summary b { color: var(--ink); }
+.tablewrap { overflow-x: auto; border: 1px solid var(--line); border-radius: 8px; }
+table { border-collapse: collapse; width: 100%; min-width: 1180px; font-size: .85rem; }
+th, td { padding: 6px 6px; border-bottom: 1px solid var(--line); text-align: left; vertical-align: middle; }
+tr:last-child td { border-bottom: 0; }
+th { background: var(--surface-2); font-weight: 500; color: var(--muted); white-space: nowrap; padding: 8px 8px; }
+th.num, td.num { text-align: right; }
+td.num { font-variant-numeric: tabular-nums; white-space: nowrap; padding-inline: 10px; }
+td input {
+  width: 100%;
+  font: inherit;
+  font-size: 15px;
+  color: var(--ink);
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  padding: 6px 6px;
+  min-height: 36px;
+}
+td input:hover { border-color: var(--line); }
+td input:focus { background: var(--surface-2); border-color: var(--accent); }
+td input.r { text-align: right; font-variant-numeric: tabular-nums; }
+.empty { color: var(--muted); text-align: center; padding: 22px 12px; }
+
+.results-head { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; flex-wrap: wrap; margin: 6px 0 10px; }
+.results-head h2 { font-size: 1.1rem; }
+.notices { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 320px), 1fr)); gap: 12px; }
+.notice {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-width: 0;
+}
+.notice-head { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; }
+.notice-head strong { font-size: 1rem; overflow-wrap: anywhere; }
+.notice-head .total { font-variant-numeric: tabular-nums; font-weight: 700; font-size: 1.05rem; color: var(--accent); white-space: nowrap; }
+.notice pre {
+  margin: 0;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  font: inherit;
+  font-size: .92rem;
+  background: var(--surface-2);
+  border-radius: 8px;
+  padding: 12px;
+}
+.notice .check { font-size: .88rem; font-weight: 400; color: var(--muted); }
+.placeholder { grid-column: 1 / -1; color: var(--muted); text-align: center; padding: 24px 12px; border: 1px dashed var(--line); border-radius: 10px; }
+.sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+</style>
+
+<div class="page">
+  <h1>收款通知輔助小工具</h1>
+  <p class="lead">先把抽單整理成明細，確認沒問題再產生每個人的收款通知。</p>
+
+  <section class="card" aria-labelledby="s1">
+    <h2 id="s1"><span class="n">1</span>貼上原始資料</h2>
+    <p class="hint">每次按「加入明細」，解析出來的內容會接在步驟 2 的明細後面。已經有明細的話可以直接跳到步驟 2。</p>
+    <textarea id="raw" spellcheck="false" aria-label="抽單原始資料"></textarea>
+    <div class="row">
+      <button type="button" class="btn primary" id="parse">加入明細</button>
+      <button type="button" class="btn" id="loadSample">載入範例</button>
+      <button type="button" class="btn" id="clearRaw">清空原始資料</button>
+    </div>
+    <div class="warn" id="warnings" role="note"></div>
+    <details>
+      <summary>計算規則</summary>
+      <ul>
+        <li>【賞名】那一行開始新的一套，A：、B： 開頭的行是獎項，加碼與運費說明會略過。</li>
+        <li>--- 開頭的行是價格或優惠，例如 1抽110，5抽450 是價格階梯，系統會用最省的組合計價。</li>
+        <li>優惠5送2 底下的 <code>@名字 +10送4</code> 是付 10 抽、多送 4 抽，原價用單抽價乘上總抽數。</li>
+        <li>優惠5抽140 底下的訂單用優惠價計算，沒有的部分回到一般價格階梯。</li>
+        <li>降價區 之後的價格行只套用在後面的訂單。</li>
+        <li>名字可以有空格，@ 後面到 <code>+抽數</code> 之前都算名字。/ 後面是中的獎項，X 代表沒中。</li>
+        <li>名字後面 / 之後如果寫的不是獎項代號，例如 <code>彩票95張</code>，會原樣當成他得到的獎品，可以跟代號並用，像 <code>(a)+彩票95張</code>。</li>
+        <li>實際用到的價格階梯才會顯示在規則欄，沒用到的不顯示。</li>
+        <li>獎項代號 <code>(c)</code>、<code>（D)</code> 都會統一成 C、D。<code>G*2</code> 表示拿到 2 個 G，同一個人在不同訂單拿到同一個獎項會累加。</li>
+        <li>獎品名稱結尾的 <code>*3</code> 是獎品總數，不是個人拿到的數量，產生明細時會去掉。獎品後面列出得獎者的 @ 行和 # 行會自動略過。</li>
+      </ul>
+    </details>
+  </section>
+
+  <section class="card" aria-labelledby="s2">
+    <h2 id="s2"><span class="n">2</span>明細</h2>
+    <div class="table-head">
+      <p class="hint">表格裡的欄位都能直接修改，原價和應付會自動重算。</p>
+      <div class="summary" id="summary"></div>
+    </div>
+    <div class="tablewrap"><table id="table"></table></div>
+    <div class="row">
+      <button type="button" class="btn" id="addRow">新增一筆</button>
+      <button type="button" class="btn" id="copyTable">複製表格</button>
+      <button type="button" class="btn danger" id="clearRows">清空明細</button>
+    </div>
+    <details>
+      <summary>貼上現有明細（從試算表複製）</summary>
+      <p class="hint">每行一筆，欄位用 Tab 分隔，順序是：名字、賞名、獎項、單價、抽數、原價、折扣、規則。第一行如果是標題會自動略過。</p>
+      <textarea id="importText" spellcheck="false" aria-label="貼上現有明細"></textarea>
+      <div class="row"><button type="button" class="btn" id="importBtn">加入明細</button></div>
+      <div class="warn" id="importWarn" role="note"></div>
+    </details>
+  </section>
+
+  <section class="card" aria-labelledby="s3">
+    <h2 id="s3"><span class="n">3</span>通知內容</h2>
+    <div class="field">
+      <label for="date">自訂區間日期</label>
+      <input type="text" id="date" autocomplete="off">
+    </div>
+    <div class="field">
+      <label for="header">預設上半部內容（可隨時更改）</label>
+      <p class="hint">保留 {Name} 和 {Date}，系統會自動換成名字與日期。</p>
+      <textarea id="header"></textarea>
+    </div>
+    <label class="check"><input type="checkbox" id="useTail"> 附上結語（勾選後每個人預設都加，產生後可以逐人調整）</label>
+    <textarea id="tail" aria-label="結語內容"></textarea>
+    <label class="check"><input type="checkbox" id="full"> 通知裡顯示完整獎項名稱（取消勾選就只顯示 A、B）</label>
+    <button type="button" class="btn primary wide" id="run">產生收款通知</button>
+  </section>
+  <div class="sr" role="status" aria-live="polite" id="status"></div>
+
+  <div id="results">
+    <div class="results-head">
+      <h2>收款通知</h2>
+      <div class="summary" id="nsummary"></div>
+    </div>
+    <div class="notices" id="notices"></div>
+  </div>
+</div>
+
+<script>
+const DIV = '—————————————';
+const PRIZE_RE = /^((?:[A-Za-z]{1,3}|最後)賞?)\s*[：:]\s*(.*)$/;
+
+const SAMPLE = `9/6（感謝捧場）【王女賞】就...又出包了
+2/200：預購+現貨不含運，有滿額
+A：出包王女15週年女神禮服Ver. 6人組合[VISION](9~10月預購)  @神秘人 得
+B：『出包王女』豪華燙金卡牌套裝(8＋1AP卡)+收納活頁夾 @神秘人 得
+
+加碼：1次5抽出包次數合計40以上，額外贈送1組A賞，只有1個先搶先贏
+
+---優惠5送2，共8單(先開5再開2)
+@陳庭育 +10送4/X
+@史努比 +10送4/X
+@神秘人 +20送8/X
+
+---1抽110，5抽450
+@神秘人 +120/A.B
+
+10/28(爆擊下套)【暴擊賞】希希不信邪3.0
+2/66：現貨不含運，福利套無滿額
+A賞：Taito 初音未來 T-most NTver. @為 得
+B賞：Taito 初音未來 AMP+ Birthday2026 Star Dreamy ver. @為 得
+
+加碼：前五抽及最後一抽出獎免整單
+
+---優惠5抽140，共5單
+@為 +15/A
+
+---1抽40，3抽100
+
+
+
+降價區---
+---優惠5抽90，剩兩單
+@林柏村 +10/X
+
+---1抽25，3抽60
+@為 +16/B
+
+11/17（感謝捧場）【福利滿額賞】咖波美食小集合
+3/80：現貨不含運，不可換彩票
+A：蘋果咖波懶洋洋大娃@洧Wei♏️
+B：西門店限定-咖波蛋吐司吊飾娃@橘子🍊
+C：咖波草莓冰淇淋鬆餅吊飾娃@洧Wei♏️
+
+---優惠5抽150，只有6單
+@洧Wei♏️ +30/X
+
+---1抽39，3抽100
+@洧Wei♏️ +18/A.C
+
+降價區
+---1抽25，3抽66
+@橘子🍊 +18/B
+@San Yu +40/X
+
+配率及說明如觀賽區：https://open.wonderkuji.com.tw/s/muximi
+
+【開抽視同遵守觀賽區規則，請量力而玩，瞭解獎品性質才同樂】`;
+
+function parseTiers(text) {
+  const tiers = [];
+  const re = /(\d+)\s*抽\s*(\d+)/g;
+  let m;
+  while ((m = re.exec(text))) tiers.push({ k: +m[1], p: +m[2] });
+  return tiers;
+}
+
+function normCode(s) {
+  return s.replace(/賞$/, '').toUpperCase();
+}
+
+const CODE_RE = /^([A-Za-z]{1,3}|最後賞?)(?:[*＊×]\s*(\d+))?$/;
+
+// 名字後面 / 之後的內容：
+// (a)、（D)、G*2 這類是獎項代號，統一成 A、D、G，G*2 代表拿到 2 個 G；
+// 其他文字（例如 彩票95張）原樣當成他得到的獎品。
+function parsePrizeField(str) {
+  const codes = [];
+  const extras = [];
+  const asCodes = (s) => {
+    const toks = s.replace(/[()（）\[\]［］]/g, '').split(/[\s.,，、+＋&\/／]+/).filter(Boolean);
+    if (!toks.length || !toks.every((t) => CODE_RE.test(t))) return null;
+    return toks.map((t) => {
+      const cm = t.match(CODE_RE);
+      return { c: normCode(cm[1]), n: cm[2] ? +cm[2] : 1 };
+    });
+  };
+  const all = asCodes(str);
+  if (all) return { codes: all, extras };
+  str.split(/[+＋,，、&\/／]+/).forEach((seg) => {
+    const s = seg.trim();
+    if (!s) return;
+    const cs = asCodes(s);
+    if (cs) codes.push(...cs);
+    else extras.push(s);
+  });
+  return { codes, extras };
+}
+
+function cleanName(s) {
+  return String(s).replace(/[️​]/g, '').trim();
+}
+
+function parseRaw(raw) {
+  const blocks = [];
+  const warnings = [];
+  let block = null;
+  let ctx = null;
+  let sec = null;
+
+  const startCtx = () => {
+    ctx = { tiers: null, sections: [] };
+    block.ctxs.push(ctx);
+    sec = null;
+  };
+  const ensureBlock = () => {
+    if (!block) {
+      block = { title: '（未命名）', prizes: {}, ctxs: [] };
+      blocks.push(block);
+      ctx = null;
+      sec = null;
+    }
+  };
+
+  raw.split(/\r?\n/).forEach((src, i) => {
+    const line = src.trim();
+    if (!line) return;
+    const lineNo = i + 1;
+
+    // # 開頭的行是獎品的得獎者備註，略過
+    if (line.startsWith('#')) return;
+
+    // 新的一套：含【賞名】的標題行
+    if (/【[^】]+】/.test(line) && !/^[@\-—–－]/.test(line) && !PRIZE_RE.test(line) &&
+        !(line.startsWith('【') && line.endsWith('】'))) {
+      block = { title: line.slice(line.indexOf('【')).trim(), prizes: {}, ctxs: [] };
+      blocks.push(block);
+      ctx = null;
+      sec = null;
+      return;
+    }
+
+    // 獎項行 A：xxx @某人 得
+    const pm = line.match(PRIZE_RE);
+    if (pm) {
+      ensureBlock();
+      block.prizes[normCode(pm[1])] = pm[1] + '：' + pm[2].replace(/\s*@.*$/, '').replace(/\s*[*＊×]\s*\d+\s*$/, '').trim();
+      return;
+    }
+
+    // 降價區：換一組價格
+    if (/降價/.test(line) && !line.startsWith('@')) {
+      ensureBlock();
+      startCtx();
+      return;
+    }
+
+    // --- 區段標題
+    if (/^[-—–－]{2,}/.test(line)) {
+      const body = line.replace(/^[-—–－]+\s*/, '');
+      if (!body) return;
+      ensureBlock();
+      const bonus = body.match(/優惠\s*(\d+)\s*送\s*(\d+)/);
+      const tiers = parseTiers(body);
+      if (bonus) {
+        if (!ctx || ctx.tiers) startCtx();
+        sec = { kind: 'bonus', N: +bonus[1], M: +bonus[2], entries: [] };
+        ctx.sections.push(sec);
+      } else if (/優惠/.test(body) && tiers.length) {
+        if (!ctx || ctx.tiers) startCtx();
+        sec = { kind: 'promo', tiers, entries: [] };
+        ctx.sections.push(sec);
+      } else if (tiers.length) {
+        if (!ctx || ctx.tiers) startCtx();
+        ctx.tiers = tiers;
+        sec = { kind: 'price', entries: [] };
+        ctx.sections.push(sec);
+      } else {
+        warnings.push(`第 ${lineNo} 行的區段標題看不懂：${line}`);
+      }
+      return;
+    }
+
+    // @名字 +抽數(送N)/獎項
+    if (line.startsWith('@')) {
+      const m = line.match(/^@\s*(.+?)\s*[+＋]\s*(\d+)(?:\s*送\s*(\d+))?\s*(?:[\/／]\s*(.*))?$/);
+      if (!m) {
+        // 還沒開始任何價格區段前的 @ 行，是獎品的得獎者名單，直接略過
+        if (!ctx) return;
+        warnings.push(`第 ${lineNo} 行看不懂：${line}`);
+        return;
+      }
+      ensureBlock();
+      if (!ctx) startCtx();
+      if (!sec) {
+        sec = { kind: 'plain', entries: [] };
+        ctx.sections.push(sec);
+      }
+      const { codes, extras } = parsePrizeField(m[4] || '');
+      const nm = cleanName(m[1]);
+      sec.entries.push({ name: nm, n: +m[2], m: m[3] ? +m[3] : 0, codes, extras });
+    }
+  });
+
+  return { blocks, warnings };
+}
+
+function minCost(tiers, n) {
+  const INF = 1e15;
+  const dp = new Array(n + 1).fill(INF);
+  const pick = new Array(n + 1).fill(-1);
+  dp[0] = 0;
+  for (let i = 1; i <= n; i++) {
+    for (let j = 0; j < tiers.length; j++) {
+      const t = tiers[j];
+      if (t.k <= i && dp[i - t.k] + t.p < dp[i]) {
+        dp[i] = dp[i - t.k] + t.p;
+        pick[i] = j;
+      }
+    }
+  }
+  const used = new Set();
+  for (let i = n; i > 0 && pick[i] >= 0; i -= tiers[pick[i]].k) used.add(pick[i]);
+  return { cost: dp[n], used: Array.from(used).map((j) => tiers[j]) };
+}
+
+function mergeTiers(a, b) {
+  return a.concat(b.map((t) => Object.assign({}, t, { promo: true })));
+}
+
+function gcd(a, b) {
+  return b ? gcd(b, a % b) : a;
+}
+
+function bonusUnit(e) {
+  const s = e.sec;
+  if (s.kind === 'bonus') {
+    const minN = Math.min(...s.entries.map((x) => x.n));
+    if ((minN * s.M) % s.N === 0) return `${minN}送${(minN * s.M) / s.N}`;
+    return `${s.N}送${s.M}`;
+  }
+  const g = gcd(e.n, e.m) || 1;
+  return `${e.n / g}送${e.m / g}`;
+}
+
+function analyze(raw) {
+  const { blocks, warnings } = parseRaw(raw);
+  const rows = [];
+
+  blocks.forEach((block) => {
+    block.ctxs.forEach((ctx) => {
+      const entries = ctx.sections.flatMap((s) => s.entries.map((e) => Object.assign({}, e, { sec: s })));
+      if (!entries.length) return;
+
+      const tiers = (ctx.tiers || []).slice();
+      if (!tiers.length) {
+        warnings.push(`${block.title} 有訂單，但找不到價格行（例如：---1抽110，5抽450）`);
+      }
+      let single = (tiers.find((t) => t.k === 1) || {}).p;
+      if (single == null) {
+        single = tiers.length ? Math.round(tiers[0].p / tiers[0].k) : 0;
+        tiers.push({ k: 1, p: single });
+      }
+
+      const by = new Map();
+      entries.forEach((e) => {
+        if (!by.has(e.name)) {
+          by.set(e.name, { name: e.name, draws: 0, pay: 0, codes: new Map(), extras: new Map(), used: new Map(), bonus: '' });
+        }
+        const a = by.get(e.name);
+        const useTiers = e.sec.kind === 'promo' ? mergeTiers(tiers, e.sec.tiers) : tiers;
+        const r = minCost(useTiers, e.n);
+        a.draws += e.n + e.m;
+        a.pay += r.cost;
+        r.used.filter((t) => t.k > 1).forEach((t) => a.used.set((t.promo ? 'p' : 'b') + t.k + '_' + t.p, t));
+        e.codes.forEach((k) => a.codes.set(k.c, (a.codes.get(k.c) || 0) + k.n));
+        (e.extras || []).forEach((t) => a.extras.set(t, (a.extras.get(t) || 0) + 1));
+        if (e.m > 0) a.bonus = bonusUnit(e);
+      });
+
+      by.forEach((a) => {
+        // 獎項照獎品列表的順序排，越上面越大；列表裡沒有的排最後
+        const order = Object.keys(block.prizes);
+        const rank = (c) => { const i = order.indexOf(c); return i < 0 ? 1000 : i; };
+        const codes = Array.from(a.codes.keys()).filter((c) => c !== 'X')
+          .sort((x, y) => rank(x) - rank(y) || (x < y ? -1 : 1));
+        const cnt = (c) => a.codes.get(c);
+        const extras = Array.from(a.extras.keys());
+        const ecnt = (t) => (a.extras.get(t) > 1 ? ' ×' + a.extras.get(t) : '');
+        const usedTiers = Array.from(a.used.values());
+        const byK = (x, y) => x.k - y.k;
+        const tierText = usedTiers.filter((t) => !t.promo).sort(byK).map((t) => `(${t.k}抽${t.p})`).join('');
+        const promoText = usedTiers.filter((t) => t.promo).sort(byK).map((t) => `(優惠${t.k}抽${t.p})`).join('');
+        const shortParts = codes.map((c) => c + (cnt(c) > 1 ? '*' + cnt(c) : '')).concat(extras.map((t) => t + ecnt(t)));
+        const fullParts = codes.map((c) => (block.prizes[c] || c) + (cnt(c) > 1 ? ' ×' + cnt(c) : '')).concat(extras.map((t) => t + ecnt(t)));
+        const orig = single * a.draws;
+        rows.push({
+          name: a.name,
+          title: block.title,
+          prizeShort: shortParts.length ? shortParts.join('+') : 'X',
+          prizeFull: fullParts.length ? fullParts.join(' +') : 'X',
+          single,
+          draws: a.draws,
+          orig,
+          disc: orig - a.pay,
+          pay: a.pay,
+          rule: tierText + promoText + (a.bonus ? `(${a.bonus})` : ''),
+        });
+      });
+    });
+  });
+
+  const map = new Map();
+  rows.forEach((r) => {
+    if (!map.has(r.name)) map.set(r.name, { name: r.name, rows: [], total: 0 });
+    const p = map.get(r.name);
+    p.rows.push(r);
+    p.total += r.pay;
+  });
+
+  return { rows, persons: Array.from(map.values()), warnings };
+}
+
+function rowOrig(r) { return (Number(r.single) || 0) * (Number(r.draws) || 0); }
+function rowPay(r) { return rowOrig(r) - (Number(r.disc) || 0); }
+
+function rowText(r, full) {
+  const disc = Number(r.disc) || 0;
+  let s = `${r.name} ${r.title}/${full ? r.prizeFull : r.prizeShort}:${r.single}*${r.draws}=${rowOrig(r)}${r.rule || ''}`;
+  if (disc > 0) s += `-${disc}=${rowPay(r)}`;
+  return s;
+}
+
+function groupRows(rows) {
+  const map = new Map();
+  rows.forEach((r) => {
+    const name = String(r.name || '').trim();
+    if (!name) return;
+    if (!map.has(name)) map.set(name, { name, rows: [], total: 0 });
+    const p = map.get(name);
+    p.rows.push(r);
+    p.total += rowPay(r);
+  });
+  return Array.from(map.values());
+}
+
+function buildNotice(person, o, withTail) {
+  const head = o.header.replace(/\{Name\}/g, person.name).replace(/\{Date\}/g, o.date).replace(/\s+$/, '');
+  const parts = [head, DIV, ...person.rows.map((r) => rowText(r, o.full)), DIV, String(person.total)];
+  let out = parts.join('\n');
+  const tail = (o.tail || '').trim();
+  if (withTail && tail) out += '\n' + tail;
+  return out;
+}
+
+function shortCodes(full) {
+  if (!full || full === 'X') return 'X';
+  const codes = [];
+  const re = /(?:^|\+)\s*([A-Za-z]{1,3}|最後賞?)\s*[：:]/g;
+  let m;
+  while ((m = re.exec(full))) codes.push(normCode(m[1]));
+  return codes.length ? codes.join('+') : full;
+}
+
+
+
+(function () {
+  var KEY = 'payment-notice-tool-v2';
+  var DEFAULTS = {
+    date: '11/8–11/14',
+    header: '感謝{Name}捧場同樂🥳～\n這次是{Date}的明細\n以下確認沒問題的話，\n再麻煩line pay或轉帳給我哦！',
+    tail: DIV + '\n滿額加碼：帳單發出24小時內結清，加送【滿額1抽】～',
+    useTail: true,
+    full: true,
+    raw: SAMPLE,
+    rows: null
+  };
+
+  var $ = function (id) { return document.getElementById(id); };
+  var els = {
+    date: $('date'), header: $('header'), raw: $('raw'), useTail: $('useTail'),
+    tail: $('tail'), full: $('full')
+  };
+
+  var nextId = 1;
+  var rows = [];
+  var generated = false;
+  var override = {};
+
+  function newRow(o) {
+    return Object.assign({ id: nextId++, name: '', title: '', prizeShort: 'X', prizeFull: 'X', single: 0, draws: 0, disc: 0, rule: '' }, o || {});
+  }
+  function toNum(v) {
+    var n = Number(String(v == null ? '' : v).replace(/[^\d.]/g, ''));
+    return isFinite(n) ? n : 0;
+  }
+
+  function load() {
+    var s = Object.assign({}, DEFAULTS);
+    try {
+      var saved = JSON.parse(localStorage.getItem(KEY) || 'null');
+      if (saved && typeof saved === 'object') {
+        ['date', 'header', 'tail', 'raw'].forEach(function (k) { if (typeof saved[k] === 'string') s[k] = saved[k]; });
+        if (typeof saved.useTail === 'boolean') s.useTail = saved.useTail;
+        if (typeof saved.fullNames === 'boolean') s.full = saved.fullNames;
+        if (Array.isArray(saved.rows)) s.rows = saved.rows;
+      }
+    } catch (e) {}
+    return s;
+  }
+
+  function save() {
+    try {
+      localStorage.setItem(KEY, JSON.stringify({
+        date: els.date.value, header: els.header.value, raw: els.raw.value,
+        useTail: els.useTail.checked, tail: els.tail.value, fullNames: els.full.checked,
+        rows: rows.map(function (r) { var c = Object.assign({}, r); delete c.id; return c; })
+      }));
+    } catch (e) {}
+  }
+
+  function opts() {
+    return { date: els.date.value, header: els.header.value, tail: els.tail.value, full: els.full.checked };
+  }
+
+  function el(tag, cls, text) {
+    var n = document.createElement(tag);
+    if (cls) n.className = cls;
+    if (text != null) n.textContent = text;
+    return n;
+  }
+
+  function fallbackCopy(text) {
+    var ta = document.createElement('textarea');
+    ta.value = text;
+    ta.setAttribute('readonly', '');
+    ta.style.position = 'fixed';
+    ta.style.top = '0';
+    ta.style.opacity = '0';
+    document.body.appendChild(ta);
+    ta.select();
+    var ok = false;
+    try { ok = document.execCommand('copy'); } catch (e) {}
+    document.body.removeChild(ta);
+    return ok;
+  }
+
+  function flash(btn, msg) {
+    var old = btn.dataset.label || btn.textContent;
+    btn.dataset.label = old;
+    btn.textContent = msg;
+    $('status').textContent = msg;
+    clearTimeout(btn._t);
+    btn._t = setTimeout(function () { btn.textContent = old; }, 1600);
+  }
+
+  async function copyText(text, btn) {
+    var ok = false;
+    try { await navigator.clipboard.writeText(text); ok = true; } catch (e) {}
+    if (!ok) ok = fallbackCopy(text);
+    flash(btn, ok ? '已複製' : '複製失敗，請手動選取複製');
+  }
+
+  function showWarn(box, list) {
+    box.textContent = '';
+    list.forEach(function (t) { box.appendChild(el('p', null, t)); });
+  }
+
+  /* ---------- step 2: detail table ---------- */
+  var COLS = [
+    { key: 'name', label: '名字', w: 110 },
+    { key: 'title', label: '賞名', w: 210 },
+    { key: 'prizeShort', label: '獎項', w: 64 },
+    { key: 'prizeFull', label: '獎項全名', w: 220 },
+    { key: 'single', label: '單價', w: 70, num: true },
+    { key: 'draws', label: '抽數', w: 70, num: true },
+    { key: 'orig', label: '原價', calc: true },
+    { key: 'disc', label: '折扣', w: 76, num: true },
+    { key: 'rule', label: '規則', w: 190 },
+    { key: 'pay', label: '應付', calc: true }
+  ];
+
+  function updateDerived() {
+    rows.forEach(function (r) {
+      var o = document.querySelector('[data-orig="' + r.id + '"]');
+      var p = document.querySelector('[data-pay="' + r.id + '"]');
+      if (o) o.textContent = String(rowOrig(r));
+      if (p) p.textContent = String(rowPay(r));
+    });
+    var persons = groupRows(rows);
+    var grand = rows.reduce(function (a, r) { return a + rowPay(r); }, 0);
+    var sum = $('summary');
+    sum.textContent = '';
+    if (rows.length) sum.append(el('b', null, String(rows.length)), ' 筆，', el('b', null, String(persons.length)), ' 人，合計 ', el('b', null, String(grand)));
+  }
+
+  function renderTable() {
+    var table = $('table');
+    table.textContent = '';
+    if (!rows.length) {
+      var tr0 = el('tr');
+      var td0 = el('td', 'empty', '還沒有明細。在步驟 1 貼上原始資料後按「加入明細」，或按「新增一筆」自己輸入。');
+      td0.colSpan = COLS.length + 1;
+      tr0.appendChild(td0);
+      table.appendChild(tr0);
+      updateDerived();
+      return;
+    }
+    var thead = el('thead');
+    var hr = el('tr');
+    COLS.forEach(function (c) { hr.appendChild(el('th', c.num || c.calc ? 'num' : null, c.label)); });
+    hr.appendChild(el('th', null, ''));
+    thead.appendChild(hr);
+    table.appendChild(thead);
+    var tb = el('tbody');
+    rows.forEach(function (r) {
+      var tr = el('tr');
+      COLS.forEach(function (c) {
+        var td = el('td', c.calc ? 'num' : null);
+        if (c.calc) {
+          td.setAttribute('data-' + c.key, r.id);
+        } else {
+          var inp = el('input', c.num ? 'r' : null);
+          inp.type = 'text';
+          if (c.num) inp.inputMode = 'numeric';
+          inp.value = r[c.key];
+          inp.style.minWidth = c.w + 'px';
+          inp.setAttribute('aria-label', c.label + '（' + (r.name || '新明細') + '）');
+          inp.addEventListener('input', function () {
+            r[c.key] = c.num ? toNum(inp.value) : inp.value;
+            updateDerived();
+            afterChange();
+          });
+          td.appendChild(inp);
+        }
+        tr.appendChild(td);
+      });
+      var tdDel = el('td');
+      var del = el('button', 'btn small danger', '刪除');
+      del.type = 'button';
+      del.setAttribute('aria-label', '刪除 ' + (r.name || '這一筆'));
+      del.addEventListener('click', function () {
+        rows = rows.filter(function (x) { return x.id !== r.id; });
+        renderTable();
+        afterChange();
+      });
+      tdDel.appendChild(del);
+      tr.appendChild(tdDel);
+      tb.appendChild(tr);
+    });
+    table.appendChild(tb);
+    updateDerived();
+  }
+
+  function tableTSV() {
+    return rows.map(function (r) {
+      var d = Number(r.disc) || 0;
+      return [r.name, r.title, r.prizeFull, r.single, r.draws, rowOrig(r), d > 0 ? '-' + d : 0, r.rule, rowPay(r)].join('\t');
+    }).join('\n');
+  }
+
+  function addParsed() {
+    var res = analyze(els.raw.value);
+    res.rows.forEach(function (r) {
+      rows.push(newRow({
+        name: r.name, title: r.title, prizeShort: r.prizeShort, prizeFull: r.prizeFull,
+        single: r.single, draws: r.draws, disc: r.disc, rule: r.rule
+      }));
+    });
+    var w = res.warnings.slice();
+    if (!res.rows.length) w.push('沒有解析到任何訂單。請確認每筆訂單是 @名字 +抽數/獎項 的格式。');
+    showWarn($('warnings'), w);
+    if (res.rows.length) $('status').textContent = '已加入 ' + res.rows.length + ' 筆明細';
+    renderTable();
+    afterChange();
+  }
+
+  function importTSV() {
+    var bad = 0, added = 0;
+    $('importText').value.split(/\r?\n/).forEach(function (line) {
+      if (!line.trim()) return;
+      var c = line.split('\t');
+      var single = toNum(c[3]), draws = toNum(c[4]);
+      if (c.length < 7 || !String(c[0]).trim() || !(single > 0 || draws > 0)) {
+        if (!/^名字/.test(c[0] || '')) bad++;
+        return;
+      }
+      var full = (c[2] || 'X').trim() || 'X';
+      var disc = Math.abs(toNum(c[6]));
+      rows.push(newRow({
+        name: c[0].trim(), title: (c[1] || '').trim(), prizeFull: full, prizeShort: shortCodes(full),
+        single: single, draws: draws, disc: disc, rule: (c[7] || '').trim()
+      }));
+      added++;
+    });
+    var w = [];
+    if (bad) w.push(bad + ' 行看不懂，已略過。欄位需要用 Tab 分隔，至少要有前七欄。');
+    if (!added && !bad) w.push('請先貼上明細內容。');
+    showWarn($('importWarn'), w);
+    if (added) {
+      $('importText').value = '';
+      $('status').textContent = '已加入 ' + added + ' 筆明細';
+    }
+    renderTable();
+    afterChange();
+  }
+
+  /* ---------- step 3: notices ---------- */
+  function tailOn(name) {
+    return Object.prototype.hasOwnProperty.call(override, name) ? override[name] : els.useTail.checked;
+  }
+
+  function renderNotices() {
+    generated = true;
+    var o = opts();
+    var persons = groupRows(rows);
+    var box = $('notices');
+    box.textContent = '';
+    var ns = $('nsummary');
+    ns.textContent = '';
+    if (!persons.length) {
+      box.appendChild(el('div', 'placeholder', '明細是空的。先在步驟 1 或 2 加入明細，再按「產生收款通知」。'));
+      return;
+    }
+    var grand = persons.reduce(function (a, p) { return a + p.total; }, 0);
+    ns.append(el('b', null, String(persons.length)), ' 人，合計 ', el('b', null, String(grand)));
+    persons.forEach(function (p) {
+      var card = el('article', 'notice');
+      var head = el('div', 'notice-head');
+      head.appendChild(el('strong', null, p.name));
+      head.appendChild(el('span', 'total', String(p.total)));
+      card.appendChild(head);
+      var pre = el('pre', null, buildNotice(p, o, tailOn(p.name)));
+      card.appendChild(pre);
+
+      var lab = el('label', 'check');
+      var cb = el('input');
+      cb.type = 'checkbox';
+      cb.checked = tailOn(p.name);
+      cb.addEventListener('change', function () {
+        override[p.name] = cb.checked;
+        pre.textContent = buildNotice(p, opts(), cb.checked);
+      });
+      lab.append(cb, '這則通知附上結語');
+      card.appendChild(lab);
+
+      var btn = el('button', 'btn', '複製 ' + p.name + ' 的通知');
+      btn.type = 'button';
+      btn.addEventListener('click', function () { copyText(pre.textContent, btn); });
+      card.appendChild(btn);
+      box.appendChild(card);
+    });
+  }
+
+  var timer;
+  function afterChange() {
+    save();
+    if (!generated) return;
+    clearTimeout(timer);
+    timer = setTimeout(renderNotices, 150);
+  }
+
+  /* ---------- boot ---------- */
+  var s = load();
+  els.date.value = s.date; els.header.value = s.header; els.raw.value = s.raw;
+  els.useTail.checked = s.useTail; els.tail.value = s.tail; els.full.checked = s.full;
+  if (s.rows) {
+    s.rows.forEach(function (r) { rows.push(newRow(r)); });
+  } else {
+    analyze(s.raw).rows.forEach(function (r) {
+      rows.push(newRow({
+        name: r.name, title: r.title, prizeShort: r.prizeShort, prizeFull: r.prizeFull,
+        single: r.single, draws: r.draws, disc: r.disc, rule: r.rule
+      }));
+    });
+  }
+
+  ['date', 'header', 'tail', 'raw'].forEach(function (k) { els[k].addEventListener('input', afterChange); });
+  els.full.addEventListener('change', afterChange);
+  els.useTail.addEventListener('change', function () { override = {}; afterChange(); });
+
+  $('parse').addEventListener('click', addParsed);
+  $('loadSample').addEventListener('click', function () { els.raw.value = SAMPLE; save(); });
+  $('clearRaw').addEventListener('click', function () { els.raw.value = ''; save(); els.raw.focus(); });
+  $('addRow').addEventListener('click', function () {
+    var last = rows[rows.length - 1];
+    rows.push(newRow(last ? { title: last.title } : {}));
+    renderTable();
+    afterChange();
+    var inputs = document.querySelectorAll('#table tbody tr:last-child input');
+    if (inputs[0]) inputs[0].focus();
+  });
+  $('copyTable').addEventListener('click', function () { copyText(tableTSV(), $('copyTable')); });
+  $('clearRows').addEventListener('click', function () {
+    var b = $('clearRows');
+    if (b.dataset.armed === '1') {
+      rows = [];
+      b.dataset.armed = '';
+      b.textContent = '清空明細';
+      renderTable();
+      afterChange();
+    } else {
+      b.dataset.armed = '1';
+      b.textContent = '再按一次確認清空';
+      clearTimeout(b._t);
+      b._t = setTimeout(function () { b.dataset.armed = ''; b.textContent = '清空明細'; }, 2500);
+    }
+  });
+  $('importBtn').addEventListener('click', importTSV);
+  $('run').addEventListener('click', function () {
+    override = {};
+    renderNotices();
+    var reduce = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    $('results').scrollIntoView({ behavior: reduce ? 'auto' : 'smooth', block: 'start' });
+  });
+
+  renderTable();
+  renderNotices();
+})();
+</script>
+
+</body></html>
